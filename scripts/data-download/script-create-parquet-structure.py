@@ -25,7 +25,7 @@ CURATED_PATH.mkdir(parents=True, exist_ok=True)
 
 DATASETS = {
     "flights": {
-        "input": RAW_PATH / "flights.csv",
+        "input": RAW_PATH / "flights_normalized.csv",
         "output": CURATED_PATH / "flights" / "flights.parquet"
     },
     "airports": {

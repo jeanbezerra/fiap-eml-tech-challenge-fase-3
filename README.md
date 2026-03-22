@@ -26,8 +26,8 @@ Antes de rodar notebooks, rotinas de tratamento ou rotinas de machine learning, 
 ```sh
 pip install -r requirements.txt
 python scripts/data-download/script-data-download.py
-python scripts/data-download/script-create-parquet-structure.py
 python scripts/data-normalization/flights-normalization.py
+python scripts/data-download/script-create-parquet-structure.py
 python scripts/feature-engineering/build_features.py
 ```
 
