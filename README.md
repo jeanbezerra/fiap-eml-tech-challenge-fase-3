@@ -16,7 +16,7 @@
 python -m venv .venv
 .venv\Scripts\activate
 python.exe -m pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ## Download dos dados
@@ -24,7 +24,7 @@ pip install -r requirements.txt
 Antes de rodar notebooks, rotinas de tratamento ou rotinas de machine learning, o engenheiro de ML deve fazer o download dos arquivos base para a pasta `data/raw/`.
 
 ```sh
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 python scripts/data-download/script-data-download.py
 python scripts/data-normalization/flights-normalization.py
 python scripts/data-download/script-create-parquet-structure.py
