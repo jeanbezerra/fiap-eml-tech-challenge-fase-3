@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 # ==============================
 # 2. CARREGAR DADOS NORMALIZADOS
 # ==============================
-df = pd.read_csv("data/raw/flights_normalized.csv")
+df = pd.read_parquet("data/features/flights_features.parquet")
 
 print("Dados carregados:", df.shape)
 
