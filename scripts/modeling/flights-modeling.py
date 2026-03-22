@@ -16,7 +16,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 # ==============================
-# 2. CARREGAR DADOS NORMALIZADOS
+# 2. CARREGAR DADOS
 # ==============================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 file_path = os.path.join(BASE_DIR, "data", "features", "flights_features.parquet")
@@ -31,32 +31,42 @@ df = pd.read_parquet(file_path)
 print("✅ Dados carregados:", df.shape)
 
 # ==============================
-# 3. AMOSTRAGEM (PERFORMANCE)
+# 3. AMOSTRAGEM
 # ==============================
 df = df.sample(min(500000, len(df)), random_state=42)
 print("📊 Amostra utilizada:", df.shape)
 
 # ==============================
-# 4. TARGET (CLASSIFICAÇÃO)
+# 4. TARGET
 # ==============================
 print("\n🎯 Criando variável target...")
 df['TARGET_DELAY'] = (df['ARRIVAL_DELAY'] > 15).astype(int)
 
 # ==============================
-# 5. PREPARAÇÃO DOS DADOS
+# 5. REMOVER LEAKAGE
 # ==============================
-print("\n🧹 Preparando dados...")
+print("\n🚫 Removendo colunas com vazamento...")
 
-cols_drop = ['ARRIVAL_DELAY', 'DATE']
+cols_leakage = [
+    'ARRIVAL_DELAY',
+    'DEPARTURE_DELAY',
+    'DELAY_RATIO',
+    'AIR_SYSTEM_DELAY',
+    'AIRLINE_DELAY',
+    'LATE_AIRCRAFT_DELAY',
+    'WEATHER_DELAY',
+    'IS_DELAYED',
+    'DATE'
+]
 
-X = df.drop(columns=cols_drop + ['TARGET_DELAY'], errors='ignore')
+X = df.drop(columns=cols_leakage + ['TARGET_DELAY'], errors='ignore')
 
-# 🔥 CORREÇÃO PRINCIPAL: manter apenas colunas numéricas
+# manter apenas numéricas
 X = X.select_dtypes(include=[np.number])
 
 y = df['TARGET_DELAY']
 
-print("✔ Features usadas:", X.shape)
+print("✔ Features finais:", X.shape)
 
 # ==============================
 # SPLIT
@@ -95,7 +105,7 @@ eval_class(y_test, model_lr.predict(X_test_scaled), "Logistic Regression")
 eval_class(y_test, model_rf.predict(X_test), "Random Forest")
 
 # ==============================
-# 7. REGRESSÃO
+# 7. REGRESSÃO (SEM LEAKAGE)
 # ==============================
 print("\n===== 📈 REGRESSÃO =====")
 
@@ -104,7 +114,7 @@ df_reg = df[df['ARRIVAL_DELAY'] > 0]
 if len(df_reg) < 100:
     print("⚠ Poucos dados para regressão. Pulando etapa.")
 else:
-    X_reg = df_reg.drop(columns=['ARRIVAL_DELAY', 'TARGET_DELAY', 'DATE'], errors='ignore')
+    X_reg = df_reg.drop(columns=cols_leakage + ['TARGET_DELAY'], errors='ignore')
     X_reg = X_reg.select_dtypes(include=[np.number])
 
     y_reg = df_reg['ARRIVAL_DELAY']
@@ -136,11 +146,11 @@ else:
 # ==============================
 print("\n===== 🧩 CLUSTERIZAÇÃO =====")
 
-features_cluster = ['DISTANCE', 'SCHEDULED_TIME', 'DEPARTURE_DELAY']
+features_cluster = ['DISTANCE', 'SCHEDULED_TIME']
+
 features_cluster = [col for col in features_cluster if col in df.columns]
 
 df_cluster = df[features_cluster].copy()
-
 df_cluster = df_cluster.select_dtypes(include=[np.number])
 
 scaler_cluster = StandardScaler()
@@ -169,4 +179,4 @@ print(importances.head(10))
 # ==============================
 # FINAL
 # ==============================
-print("\n✅ Pipeline de modelagem executado com sucesso!")
+print("\n✅ Pipeline SEM LEAKAGE executado com sucesso!")
