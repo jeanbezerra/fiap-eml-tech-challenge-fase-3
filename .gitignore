@@ -40,3 +40,7 @@ Thumbs.db
 
 # Local data downloaded from the public static bucket
 data/raw/
+data/curated
+data/external
+data/features
+data/origin
