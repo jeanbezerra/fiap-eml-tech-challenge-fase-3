@@ -37,3 +37,24 @@ Ctrl + Shift + P
 Create: New Jupyter Notebook
 ```
 
+# Requisitos e insights a serem respondidos: 
+# MODELAGEM SUPERVISIONADA (mínimo uma abordagem):
+
+Escolha entre:
+Classificação: prever se um voo vai atrasar ou não.
+OU
+Regressão: prever quanto tempo o atraso vai durar.
+Além disso: comparar pelo menos dois algoritmos diferentes e avalie com métricas adequadas.
+
+# MODELAGEM NÃO SUPERVISIONADA (mínimo uma abordagem):
+Use clusterização (ex.: agrupar rotas, aeroportos ou companhias aéreas)
+Redução de dimensionalidade (ex.: PCA)
+
+# EXTRAS:
+● Criar variáveis derivadas (ex.: período do dia, feriados, estações do ano).
+● Analisar atrasos por aeroporto, companhia ou estado.
+● Criar mapas geográficos de rotas e atrasos.
+● Identificar padrões sazonais ou horários críticos.
+● Quais aeroportos são mais críticos em relação a atrasos?
+● Que características aumentam a chance de atraso em um voo?
+● Os atrasos são mais comuns em certos dias da semana ou horários?
