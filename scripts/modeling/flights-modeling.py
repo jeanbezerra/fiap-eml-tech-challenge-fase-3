@@ -1,10 +1,11 @@
 # ==============================
-# 1. IMPORTS
+# 1. IMPORTS & SETUP
 # ==============================
 import pandas as pd
 import numpy as np
 import os
-
+import sys
+from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
@@ -15,168 +16,134 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
-# ==============================
-# 2. CARREGAR DADOS
-# ==============================
+# Configuração de caminhos
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-file_path = os.path.join(BASE_DIR, "data", "features", "flights_features.parquet")
+DATA_PATH = os.path.join(BASE_DIR, "data", "features", "flights_features.parquet")
+LOG_DIR = os.path.join(BASE_DIR, "log")
+os.makedirs(LOG_DIR, exist_ok=True)
 
-print("📂 Carregando arquivo:", file_path)
+# Gerador de log de auditoria
+log_filename = os.path.join(LOG_DIR, f"audit_modeling_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
 
-if not os.path.exists(file_path):
-    raise FileNotFoundError(f"Arquivo não encontrado: {file_path}")
-
-df = pd.read_parquet(file_path)
-
-print("✅ Dados carregados:", df.shape)
-
-# ==============================
-# 3. AMOSTRAGEM
-# ==============================
-df = df.sample(min(500000, len(df)), random_state=42)
-print("📊 Amostra utilizada:", df.shape)
+def audit_log(message):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] {message}"
+    print(entry)
+    with open(log_filename, "a", encoding="utf-8") as f:
+        f.write(entry + "\n")
 
 # ==============================
-# 4. TARGET
+# 2. CARREGAR E PREPARAR DADOS
 # ==============================
-print("\n🎯 Criando variável target...")
+audit_log(f"Iniciando execução. Arquivo: {DATA_PATH}")
+
+if not os.path.exists(DATA_PATH):
+    audit_log(f"ERRO: Arquivo não encontrado em {DATA_PATH}")
+    sys.exit(1)
+
+df_raw = pd.read_parquet(DATA_PATH)
+audit_log(f"Dados brutos carregados: {df_raw.shape}")
+
+# Amostragem
+sample_size = 500000
+df = df_raw.sample(min(sample_size, len(df_raw)), random_state=42).copy()
+audit_log(f"Amostra utilizada: {df.shape} (Seed: 42)")
+
+# Criar Target (Classificação)
 df['TARGET_DELAY'] = (df['ARRIVAL_DELAY'] > 15).astype(int)
 
-# ==============================
-# 5. REMOVER LEAKAGE
-# ==============================
-print("\n🚫 Removendo colunas com vazamento...")
-
+# Filtro de Leakage
 cols_leakage = [
-    'ARRIVAL_DELAY',
-    'DEPARTURE_DELAY',
-    'DELAY_RATIO',
-    'AIR_SYSTEM_DELAY',
-    'AIRLINE_DELAY',
-    'LATE_AIRCRAFT_DELAY',
-    'WEATHER_DELAY',
-    'IS_DELAYED',
-    'DATE'
+    'ARRIVAL_DELAY', 'DEPARTURE_DELAY', 'DELAY_RATIO', 
+    'AIR_SYSTEM_DELAY', 'AIRLINE_DELAY', 'LATE_AIRCRAFT_DELAY', 
+    'WEATHER_DELAY', 'IS_DELAYED', 'DATE'
 ]
 
-X = df.drop(columns=cols_leakage + ['TARGET_DELAY'], errors='ignore')
-
-# manter apenas numéricas
-X = X.select_dtypes(include=[np.number])
-
+X = df.drop(columns=cols_leakage + ['TARGET_DELAY'], errors='ignore').select_dtypes(include=[np.number])
 y = df['TARGET_DELAY']
 
-print("✔ Features finais:", X.shape)
+audit_log(f"Features selecionadas: {X.shape[1]} colunas.")
+
+# Split único para Classificação
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # ==============================
-# SPLIT
+# 3. CLASSIFICAÇÃO
 # ==============================
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-# ==============================
-# 6. CLASSIFICAÇÃO
-# ==============================
-print("\n===== 🤖 CLASSIFICAÇÃO =====")
+audit_log("--- Início: Classificação ---")
 
 scaler = StandardScaler()
-
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-model_lr = LogisticRegression(max_iter=2000)
-model_rf = RandomForestClassifier(n_estimators=100, random_state=42)
+# Parâmetros para auditoria
+params_rf = {"n_estimators": 100, "max_depth": None, "random_state": 42}
+params_lr = {"max_iter": 2000}
 
-print("🚀 Treinando Logistic Regression...")
+model_lr = LogisticRegression(**params_lr)
+model_rf = RandomForestClassifier(**params_rf)
+
+audit_log(f"Treinando Logistic Regression (params: {params_lr})...")
 model_lr.fit(X_train_scaled, y_train)
 
-print("🌲 Treinando Random Forest...")
-model_rf.fit(X_train, y_train)
+audit_log(f"Treinando Random Forest (params: {params_rf})...")
+model_rf.fit(X_train, y_train) # RF não exige escala, usamos X_train original
 
-def eval_class(y_true, y_pred, name):
-    print(f"\n📊 {name}")
-    print("Accuracy:", accuracy_score(y_true, y_pred))
-    print("Precision:", precision_score(y_true, y_pred, zero_division=0))
-    print("Recall:", recall_score(y_true, y_pred, zero_division=0))
-    print("F1-score:", f1_score(y_true, y_pred, zero_division=0))
+def get_metrics_class(model, X_val, y_val, name):
+    preds = model.predict(X_val)
+    acc = accuracy_score(y_val, preds)
+    pre = precision_score(y_val, preds, zero_division=0)
+    rec = recall_score(y_val, preds, zero_division=0)
+    f1 = f1_score(y_val, preds, zero_division=0)
+    return f"METRICAS {name}: Acc: {acc:.4f} | Prec: {pre:.4f} | Rec: {rec:.4f} | F1: {f1:.4f}"
 
-eval_class(y_test, model_lr.predict(X_test_scaled), "Logistic Regression")
-eval_class(y_test, model_rf.predict(X_test), "Random Forest")
+audit_log(get_metrics_class(model_lr, X_test_scaled, y_test, "Logistic Regression"))
+audit_log(get_metrics_class(model_rf, X_test, y_test, "Random Forest"))
 
 # ==============================
-# 7. REGRESSÃO (SEM LEAKAGE)
+# 4. REGRESSÃO
 # ==============================
-print("\n===== 📈 REGRESSÃO =====")
+audit_log("--- Início: Regressão (Apenas voos com atraso > 0) ---")
 
-df_reg = df[df['ARRIVAL_DELAY'] > 0]
+df_reg = df[df['ARRIVAL_DELAY'] > 0].copy()
 
 if len(df_reg) < 100:
-    print("⚠ Poucos dados para regressão. Pulando etapa.")
+    audit_log("AVISO: Dados insuficientes para regressão.")
 else:
-    X_reg = df_reg.drop(columns=cols_leakage + ['TARGET_DELAY'], errors='ignore')
-    X_reg = X_reg.select_dtypes(include=[np.number])
-
+    X_reg = df_reg[X.columns] # Usa as mesmas features numéricas já limpas
     y_reg = df_reg['ARRIVAL_DELAY']
+    
+    Xr_train, Xr_test, yr_train, yr_test = train_test_split(X_reg, y_reg, test_size=0.2, random_state=42)
+    
+    model_lin = LinearRegression()
+    model_rfr = RandomForestRegressor(n_estimators=50, random_state=42) # Reduzi n_estimators para velocidade
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_reg, y_reg, test_size=0.2, random_state=42
-    )
+    model_lin.fit(Xr_train, yr_train)
+    model_rfr.fit(Xr_train, yr_train)
 
-    model_lr_reg = LinearRegression()
-    model_rf_reg = RandomForestRegressor(n_estimators=100, random_state=42)
+    def get_metrics_reg(model, X_val, y_val, name):
+        preds = model.predict(X_val)
+        mae = mean_absolute_error(y_val, preds)
+        rmse = np.sqrt(mean_squared_error(y_val, preds))
+        r2 = r2_score(y_val, preds)
+        return f"METRICAS {name}: MAE: {mae:.2f} | RMSE: {rmse:.2f} | R2: {r2:.4f}"
 
-    print("🚀 Treinando Linear Regression...")
-    model_lr_reg.fit(X_train, y_train)
-
-    print("🌲 Treinando Random Forest Regressor...")
-    model_rf_reg.fit(X_train, y_train)
-
-    def eval_reg(y_true, y_pred, name):
-        print(f"\n📊 {name}")
-        print("MAE:", mean_absolute_error(y_true, y_pred))
-        print("RMSE:", np.sqrt(mean_squared_error(y_true, y_pred)))
-        print("R2:", r2_score(y_true, y_pred))
-
-    eval_reg(y_test, model_lr_reg.predict(X_test), "Linear Regression")
-    eval_reg(y_test, model_rf_reg.predict(X_test), "Random Forest Regressor")
+    audit_log(get_metrics_reg(model_lin, Xr_test, yr_test, "Linear Reg"))
+    audit_log(get_metrics_reg(model_rfr, Xr_test, yr_test, "RF Regressor"))
 
 # ==============================
-# 8. CLUSTERIZAÇÃO
+# 5. CLUSTERIZAÇÃO E IMPORTÂNCIA
 # ==============================
-print("\n===== 🧩 CLUSTERIZAÇÃO =====")
+audit_log("--- Início: Clusterização & Insights ---")
 
-features_cluster = ['DISTANCE', 'SCHEDULED_TIME']
+kmeans = KMeans(n_clusters=5, n_init=10, random_state=42)
+# Usando subset para clusterizar (Ex: Distancia e Tempo)
+X_cl = scaler.fit_transform(df[['DISTANCE', 'SCHEDULED_TIME']].fillna(0))
+df['CLUSTER'] = kmeans.fit_predict(X_cl)
+audit_log(f"Clusters criados. Distribuição: {df['CLUSTER'].value_counts().to_dict()}")
 
-features_cluster = [col for col in features_cluster if col in df.columns]
+# Feature Importance (Random Forest Classificação)
+importances = pd.Series(model_rf.feature_importances_, index=X.columns).sort_values(ascending=False).head(5)
+audit_log(f"Top 5 Features: {importances.to_dict()}")
 
-df_cluster = df[features_cluster].copy()
-df_cluster = df_cluster.select_dtypes(include=[np.number])
-
-scaler_cluster = StandardScaler()
-X_scaled = scaler_cluster.fit_transform(df_cluster)
-
-print("🚀 Treinando KMeans...")
-
-kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
-df['CLUSTER'] = kmeans.fit_predict(X_scaled)
-
-print("\n📊 Distribuição dos clusters:")
-print(df['CLUSTER'].value_counts())
-
-# ==============================
-# 9. FEATURE IMPORTANCE
-# ==============================
-print("\n===== 🔍 FEATURE IMPORTANCE =====")
-
-importances = pd.Series(
-    model_rf.feature_importances_,
-    index=X.columns
-).sort_values(ascending=False)
-
-print(importances.head(10))
-
-# ==============================
-# FINAL
-# ==============================
-print("\n✅ Pipeline SEM LEAKAGE executado com sucesso!")
+audit_log("Finalizado com sucesso. Log gerado em: " + log_filename)

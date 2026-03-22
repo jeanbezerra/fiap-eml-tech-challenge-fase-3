@@ -42,6 +42,39 @@ def load_data():
 
     return flights, airports
 
+
+def normalize_airport_key(series: pd.Series) -> pd.Series:
+    return series.astype("string").str.strip().str.upper()
+
+
+def log_airport_enrichment_coverage(df: pd.DataFrame, airports: pd.DataFrame) -> None:
+    flight_keys = normalize_airport_key(df["ORIGIN_AIRPORT"])
+    airport_keys = normalize_airport_key(airports["IATA_CODE"])
+
+    missing_keys = sorted(set(flight_keys.dropna().unique()) - set(airport_keys.dropna().unique()))
+    missing_rows = int(flight_keys.isin(missing_keys).sum())
+    numeric_missing = [key for key in missing_keys if key.isdigit()]
+    alpha_missing = [key for key in missing_keys if not key.isdigit()]
+
+    log(
+        "INFO",
+        "VALIDATE",
+        f"Cobertura airports x flights: origens únicas em flights={flight_keys.nunique(dropna=True)} | chaves em airports={airport_keys.nunique(dropna=True)} | chaves sem match={len(missing_keys)}"
+    )
+
+    if missing_keys:
+        sample_missing = missing_keys[:10]
+        log(
+            "WARN",
+            "VALIDATE",
+            f"Enriquecimento incompleto: {missing_rows:,} linhas de flights ficarão sem CITY/STATE. Exemplos sem match: {sample_missing}"
+        )
+        log(
+            "WARN",
+            "VALIDATE",
+            f"Quebra por tipo de chave sem match: numéricas={len(numeric_missing)} | não numéricas={len(alpha_missing)}"
+        )
+
 # =====================================================
 # Feature Engineering
 # =====================================================
@@ -49,6 +82,13 @@ def load_data():
 def build_features(df: pd.DataFrame, airports: pd.DataFrame) -> pd.DataFrame:
 
     log("INFO", "FEATURE", "Iniciando criação de features")
+
+    df = df.copy()
+    airports = airports.copy()
+
+    df["ORIGIN_AIRPORT"] = normalize_airport_key(df["ORIGIN_AIRPORT"])
+    df["DESTINATION_AIRPORT"] = normalize_airport_key(df["DESTINATION_AIRPORT"])
+    airports["IATA_CODE"] = normalize_airport_key(airports["IATA_CODE"])
 
     # =====================================================
     # Target
@@ -92,6 +132,8 @@ def build_features(df: pd.DataFrame, airports: pd.DataFrame) -> pd.DataFrame:
     # Enriquecimento com airports
     # =====================================================
     log("INFO", "FEATURE", "Enriquecendo com dados de aeroportos")
+
+    log_airport_enrichment_coverage(df, airports)
 
     airports = airports.rename(columns={"IATA_CODE": "ORIGIN_AIRPORT"})
 

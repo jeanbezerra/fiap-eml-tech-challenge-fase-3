@@ -171,6 +171,49 @@ def normalize_text_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def validate_airport_code_formats(df: pd.DataFrame) -> None:
+    log("INFO", "VALIDATE", "Validando formato das chaves de aeroportos em flights")
+
+    airport_columns = ["ORIGIN_AIRPORT", "DESTINATION_AIRPORT"]
+
+    for column in airport_columns:
+        if column not in df.columns:
+            continue
+
+        series = df[column].astype("string").str.strip().str.upper()
+        numeric_mask = series.str.fullmatch(r"\d+").fillna(False)
+        iata_mask = series.str.fullmatch(r"[A-Z]{3}").fillna(False)
+
+        numeric_rows = int(numeric_mask.sum())
+        iata_rows = int(iata_mask.sum())
+        other_rows = int((~numeric_mask & ~iata_mask & series.notna()).sum())
+
+        log("INFO", "VALIDATE", f"{column}: linhas IATA={iata_rows:,} | linhas numéricas={numeric_rows:,} | outros formatos={other_rows:,}")
+
+        if numeric_rows > 0:
+            sample_numeric = sorted(series[numeric_mask].dropna().unique())[:10]
+            log(
+                "WARN",
+                "VALIDATE",
+                f"{column} contém códigos numéricos sem mapeamento no dataset de airports. Exemplos: {sample_numeric}"
+            )
+
+
+def filter_iata_airport_rows(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Removendo linhas com aeroportos fora do padrão IATA")
+
+    origin_mask = df["ORIGIN_AIRPORT"].astype("string").str.strip().str.upper().str.fullmatch(r"[A-Z]{3}").fillna(False)
+    destination_mask = df["DESTINATION_AIRPORT"].astype("string").str.strip().str.upper().str.fullmatch(r"[A-Z]{3}").fillna(False)
+    valid_mask = origin_mask & destination_mask
+
+    removed_rows = int((~valid_mask).sum())
+
+    if removed_rows > 0:
+        log("WARN", "PROCESS", f"{removed_rows:,} linhas removidas por ORIGIN_AIRPORT/DESTINATION_AIRPORT fora do padrão IATA")
+
+    return df.loc[valid_mask].copy()
+
+
 def create_business_features(df: pd.DataFrame) -> pd.DataFrame:
     log("INFO", "PROCESS", "Criando atributos derivados de suporte")
 
@@ -228,6 +271,8 @@ def normalize_flights() -> pd.DataFrame:
     df = normalize_time_columns(df)
     df = normalize_numeric_columns(df)
     df = normalize_text_columns(df)
+    validate_airport_code_formats(df)
+    df = filter_iata_airport_rows(df)
     df = create_business_features(df)
     df = fill_numeric_nulls(df)
 
