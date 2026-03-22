@@ -63,9 +63,11 @@ Sequência padrão que o Codex deve privilegiar:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/data-download/script-data-download.py
+python scripts/data-download/download-raw-data.py
 python scripts/data-normalization/flights-normalization.py
-python scripts/data-download/script-create-parquet-structure.py
+python scripts/data-normalization/airports-normalization.py
+python scripts/data-normalization/airlines-normalization.py
+python scripts/data-download/build-curated-parquet.py
 python scripts/feature-engineering/build_features.py
 python scripts/modeling/train.py
 ```

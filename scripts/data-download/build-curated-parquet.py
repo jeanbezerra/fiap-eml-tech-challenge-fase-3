@@ -29,11 +29,11 @@ DATASETS = {
         "output": CURATED_PATH / "flights" / "flights.parquet"
     },
     "airports": {
-        "input": RAW_PATH / "airports.csv",
+        "input": RAW_PATH / "airports_normalized.csv",
         "output": CURATED_PATH / "airports" / "airports.parquet"
     },
     "airlines": {
-        "input": RAW_PATH / "airlines.csv",
+        "input": RAW_PATH / "airlines_normalized.csv",
         "output": CURATED_PATH / "airlines" / "airlines.parquet"
     }
 }
