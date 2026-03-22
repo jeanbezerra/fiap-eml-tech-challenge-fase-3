@@ -44,3 +44,5 @@ data/curated
 data/external
 data/features
 data/origin
+
+models/**
