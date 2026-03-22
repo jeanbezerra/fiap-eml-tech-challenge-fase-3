@@ -7,9 +7,9 @@ echo [1/5] Preparando ambiente Python...
 uv venv .venv >nul 2>&1 || python -m venv .venv >nul
 
 echo [2/5] Sincronizando dependencias...
-uv pip install -r requirements.txt >nul 2>&1 || (
+uv python -m pip install -r requirements.txt >nul 2>&1 || (
     python -m pip install --upgrade pip >nul
-    pip install -r requirements.txt >nul
+    python -m pip install -r requirements.txt >nul
 )
 
 echo [3/5] Executando: Download de dados...
