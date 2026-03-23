@@ -1,0 +1,19 @@
+[2026-03-22T21:21:19-03:00] Iniciando execução. Arquivo: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\data\features\flights_features.parquet
+[2026-03-22T21:21:19-03:00] Dados brutos carregados: (5332914, 28)
+[2026-03-22T21:21:20-03:00] Amostra utilizada: (500000, 28) (Seed: 42)
+[2026-03-22T21:21:20-03:00] Features selecionadas: 18 colunas.
+[2026-03-22T21:21:20-03:00] Threshold de classificação utilizado: 0.30
+[2026-03-22T21:21:21-03:00] --- Início: Classificação ---
+[2026-03-22T21:21:21-03:00] Treinando Logistic Regression (params: {'max_iter': 2000, 'class_weight': 'balanced'})...
+[2026-03-22T21:21:22-03:00] Treinando Random Forest (params: {'n_estimators': 100, 'max_depth': None, 'random_state': 42, 'class_weight': 'balanced'})...
+[2026-03-22T21:23:41-03:00] METRICAS Logistic Regression: Threshold: 0.30 | Acc: 0.2469 | Prec: 0.1916 | Rec: 0.9737 | F1: 0.3203
+[2026-03-22T21:23:41-03:00] MATRIZ_CONFUSAO Logistic Regression: [[6952, 74828], [480, 17740]]
+[2026-03-22T21:23:41-03:00] METRICAS Random Forest: Threshold: 0.30 | Acc: 0.7601 | Prec: 0.3295 | Rec: 0.3061 | F1: 0.3174
+[2026-03-22T21:23:41-03:00] MATRIZ_CONFUSAO Random Forest: [[70431, 11349], [12642, 5578]]
+[2026-03-22T21:23:41-03:00] --- Regressão indisponível neste dataset ---
+[2026-03-22T21:23:41-03:00] AVISO: O dataset de features foi refatorado para classificação pré-voo e não contém ARRIVAL_DELAY.
+[2026-03-22T21:23:41-03:00] AVISO: Etapa de regressão ignorada para evitar dependência de colunas removidas por data leakage.
+[2026-03-22T21:23:41-03:00] --- Início: Clusterização & Insights ---
+[2026-03-22T21:23:45-03:00] Clusters criados. Distribuição: {0: 166683, 4: 135110, 3: 114267, 1: 52443, 2: 31497}
+[2026-03-22T21:23:45-03:00] Top 5 Features: {'ROUTE_HIST_DELAY_RATE': 0.11895256422995282, 'AIRLINE_HIST_DELAY_RATE': 0.11706413075607962, 'DAY_OF_MONTH': 0.08420499778527354, 'FLIGHT_NUMBER': 0.08295698627064468, 'DISTANCE': 0.06868100154784447}
+[2026-03-22T21:23:45-03:00] Finalizado com sucesso. Log gerado em: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\log\audit_modeling_2026-03-22T21-21-19-03-00.log

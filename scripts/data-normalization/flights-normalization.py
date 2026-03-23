@@ -1,145 +1,300 @@
-# ==============================
-# 1. IMPORTS
-# ==============================
-import pandas as pd
+# =====================================================
+# Script: Flights Normalization
+# Layer: RAW -> NORMALIZED
+# Author: Jean Bezerra
+# =====================================================
+
 import numpy as np
-import os
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
 
-# ==============================
-# 2. CARREGAMENTO DOS DADOS
-# ==============================
-url = "data/raw/flights.csv"
-df = pd.read_csv(url, low_memory=False)
+# =====================================================
+# Paths
+# =====================================================
 
-# ==============================
-# 3. FEATURE: DATA
-# ==============================
-df['DATE'] = pd.to_datetime(df[['YEAR','MONTH','DAY']], errors='coerce')
+BASE_DIR = Path(__file__).resolve().parents[2]
 
-# ==============================
-# 4. REMOVER COLUNAS IRRELEVANTES
-# ==============================
-df.drop(columns=['TAIL_NUMBER'], inplace=True, errors='ignore')
+RAW_PATH = BASE_DIR / "data" / "raw"
+INPUT_PATH = RAW_PATH / "flights.csv"
+OUTPUT_PATH = RAW_PATH / "flights_normalized.csv"
 
-# ==============================
-# 5. CONVERSÃO DE HORÁRIOS
-# ==============================
-def hhmm_to_minutes(x):
-    try:
-        if pd.isna(x):
-            return np.nan
-        x = int(float(x))
-        hours = x // 100
-        minutes = x % 100
-        
-        if hours >= 24 or minutes >= 60:
-            return np.nan
-            
-        return hours * 60 + minutes
-    except:
+# =====================================================
+# Logging
+# =====================================================
+
+def log(level: str, step: str, message: str):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] [{level}] [{step}] {message}")
+
+
+# =====================================================
+# Helpers
+# =====================================================
+
+def hhmm_to_minutes(value):
+    if pd.isna(value):
         return np.nan
 
-cols_time = [
-    'SCHEDULED_DEPARTURE', 'DEPARTURE_TIME', 'WHEELS_OFF',
-    'WHEELS_ON', 'SCHEDULED_ARRIVAL', 'ARRIVAL_TIME'
-]
+    try:
+        value = int(float(value))
+    except (TypeError, ValueError):
+        return np.nan
 
-for col in cols_time:
-    if col in df.columns:
-        df[col] = df[col].apply(hhmm_to_minutes)
+    hours = value // 100
+    minutes = value % 100
 
-# ==============================
-# 6. TRATAMENTO DE NULOS
-# ==============================
-df['CANCELLATION_REASON'] = df['CANCELLATION_REASON'].fillna('None')
+    if hours >= 24 or minutes >= 60:
+        return np.nan
 
-df['DEPARTURE_DELAY'] = pd.to_numeric(df['DEPARTURE_DELAY'], errors='coerce').fillna(0)
-df['ARRIVAL_DELAY'] = pd.to_numeric(df['ARRIVAL_DELAY'], errors='coerce').fillna(0)
+    return hours * 60 + minutes
 
-df.loc[df['CANCELLED'] == 1, 'DEPARTURE_DELAY'] = 0
 
-delay_cols = [
-    'AIR_SYSTEM_DELAY', 'SECURITY_DELAY', 'AIRLINE_DELAY',
-    'LATE_AIRCRAFT_DELAY', 'WEATHER_DELAY'
-]
+def read_csv_safe(path: Path) -> pd.DataFrame:
+    log("INFO", "READ", f"Lendo arquivo CSV: {path}")
 
-for col in delay_cols:
-    if col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    try:
+        df = pd.read_csv(path, low_memory=False)
+    except UnicodeDecodeError:
+        log("WARN", "READ", "Encoding padrão falhou, tentando latin1")
+        df = pd.read_csv(path, encoding="latin1", low_memory=False)
 
-# ==============================
-# 7. AJUSTE DE TIPOS
-# ==============================
-df['CANCELLED'] = pd.to_numeric(df['CANCELLED'], errors='coerce').fillna(0).astype(int)
-df['DIVERTED'] = pd.to_numeric(df['DIVERTED'], errors='coerce').fillna(0).astype(int)
+    log("INFO", "READ", f"Arquivo carregado com sucesso: {len(df)} linhas e {len(df.columns)} colunas")
+    return df
 
-# ==============================
-# 8. FEATURE ENGINEERING
-# ==============================
-df['SCHEDULED_TIME'] = pd.to_numeric(df['SCHEDULED_TIME'], errors='coerce')
 
-df['DELAY_RATIO'] = df['DEPARTURE_DELAY'] / df['SCHEDULED_TIME'].replace(0, np.nan)
-df['DELAY_RATIO'] = df['DELAY_RATIO'].replace([np.inf, -np.inf], np.nan).fillna(0)
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Normalizando nomes das colunas")
+    df.columns = [column.strip().upper() for column in df.columns]
+    return df
 
-# ==============================
-# 9. ENCODING
-# ==============================
-for col in ['ORIGIN_AIRPORT', 'DESTINATION_AIRPORT']:
-    if col in df.columns:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col].astype(str))
 
-low_cardinality_cols = ['AIRLINE', 'CANCELLATION_REASON']
-existing_cats = [col for col in low_cardinality_cols if col in df.columns]
+def add_date_column(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Criando coluna DATE")
+    df["DATE"] = pd.to_datetime(df[["YEAR", "MONTH", "DAY"]], errors="coerce")
+    return df
 
-df = pd.get_dummies(df, columns=existing_cats, dummy_na=False)
 
-# ==============================
-# 10. NORMALIZAÇÃO
-# ==============================
-if 'DISTANCE' in df.columns:
-    df['DISTANCE'] = pd.to_numeric(df['DISTANCE'], errors='coerce')
-    df['DISTANCE'] = df['DISTANCE'].fillna(df['DISTANCE'].median())
+def remove_irrelevant_columns(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Removendo colunas irrelevantes para a camada normalizada")
+    return df.drop(columns=["TAIL_NUMBER"], errors="ignore")
 
-    scaler = MinMaxScaler()
-    df[['DISTANCE']] = scaler.fit_transform(df[['DISTANCE']])
 
-# ==============================
-# 11. LIMPEZA FINAL
-# ==============================
-num_cols = df.select_dtypes(include=[np.number]).columns
-df[num_cols] = df[num_cols].replace([np.inf, -np.inf], np.nan)
-df[num_cols] = df[num_cols].fillna(0)
+def normalize_time_columns(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Convertendo colunas de horario de HHMM para minutos")
 
-# ==============================
-# 12. SALVAR CSV (AGORA EM data/raw)
-# ==============================
-output_dir = "data/raw"
-output_file = os.path.join(output_dir, "flights_normalized.csv")
+    time_columns = [
+        "SCHEDULED_DEPARTURE",
+        "DEPARTURE_TIME",
+        "WHEELS_OFF",
+        "WHEELS_ON",
+        "SCHEDULED_ARRIVAL",
+        "ARRIVAL_TIME",
+    ]
 
-# garante que a pasta existe (já deve existir, mas por segurança)
-os.makedirs(output_dir, exist_ok=True)
+    for column in time_columns:
+        if column in df.columns:
+            df[column] = df[column].apply(hhmm_to_minutes)
 
-if not os.path.exists(output_file):
-    df.to_csv(output_file, index=False)
-    print(f"Arquivo criado: {output_file}")
+    return df
 
-else:
-    if os.path.getsize(output_file) == 0:
-        df.to_csv(output_file, index=False)
-        print(f"Arquivo estava vazio e foi preenchido: {output_file}")
-    else:
-        print(f"Arquivo já existe e NÃO foi sobrescrito: {output_file}")
 
-# ==============================
-# 13. OUTPUT FINAL
-# ==============================
-print("Dataset tratado com sucesso!")
-print("Shape:", df.shape)
+def normalize_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Ajustando tipos numericos e tratando valores invalidos")
 
-print("\nHEAD:")
-print(df.head())
+    integer_columns = [
+        "YEAR",
+        "MONTH",
+        "DAY",
+        "DAY_OF_WEEK",
+        "FLIGHT_NUMBER",
+        "CANCELLED",
+        "DIVERTED",
+    ]
 
-print("\nTAIL:")
-print(df.tail())
+    float_columns = [
+        "SCHEDULED_DEPARTURE",
+        "DEPARTURE_TIME",
+        "WHEELS_OFF",
+        "WHEELS_ON",
+        "SCHEDULED_ARRIVAL",
+        "ARRIVAL_TIME",
+        "SCHEDULED_TIME",
+        "ELAPSED_TIME",
+        "AIR_TIME",
+        "TAXI_OUT",
+        "TAXI_IN",
+        "DISTANCE",
+        "DEPARTURE_DELAY",
+        "ARRIVAL_DELAY",
+        "AIR_SYSTEM_DELAY",
+        "SECURITY_DELAY",
+        "AIRLINE_DELAY",
+        "LATE_AIRCRAFT_DELAY",
+        "WEATHER_DELAY",
+    ]
+
+    for column in integer_columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+
+    for column in float_columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+
+    if "CANCELLED" in df.columns:
+        df["CANCELLED"] = df["CANCELLED"].fillna(0).astype("Int8")
+
+    if "DIVERTED" in df.columns:
+        df["DIVERTED"] = df["DIVERTED"].fillna(0).astype("Int8")
+
+    return df
+
+
+def normalize_text_columns(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Padronizando colunas textuais")
+
+    text_columns = [
+        "AIRLINE",
+        "ORIGIN_AIRPORT",
+        "DESTINATION_AIRPORT",
+        "CANCELLATION_REASON",
+    ]
+
+    for column in text_columns:
+        if column in df.columns:
+            df[column] = df[column].astype("string").str.strip()
+
+    if "CANCELLATION_REASON" in df.columns:
+        df["CANCELLATION_REASON"] = df["CANCELLATION_REASON"].fillna("NONE")
+
+    return df
+
+
+def validate_airport_code_formats(df: pd.DataFrame) -> None:
+    log("INFO", "VALIDATE", "Validando formato das chaves de aeroportos em flights")
+
+    airport_columns = ["ORIGIN_AIRPORT", "DESTINATION_AIRPORT"]
+
+    for column in airport_columns:
+        if column not in df.columns:
+            continue
+
+        series = df[column].astype("string").str.strip().str.upper()
+        numeric_mask = series.str.fullmatch(r"\d+").fillna(False)
+        iata_mask = series.str.fullmatch(r"[A-Z]{3}").fillna(False)
+
+        numeric_rows = int(numeric_mask.sum())
+        iata_rows = int(iata_mask.sum())
+        other_rows = int((~numeric_mask & ~iata_mask & series.notna()).sum())
+
+        log("INFO", "VALIDATE", f"{column}: linhas IATA={iata_rows:,} | linhas numéricas={numeric_rows:,} | outros formatos={other_rows:,}")
+
+        if numeric_rows > 0:
+            sample_numeric = sorted(series[numeric_mask].dropna().unique())[:10]
+            log(
+                "WARN",
+                "VALIDATE",
+                f"{column} contém códigos numéricos sem mapeamento no dataset de airports. Exemplos: {sample_numeric}"
+            )
+
+
+def filter_iata_airport_rows(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Removendo linhas com aeroportos fora do padrão IATA")
+
+    origin_mask = df["ORIGIN_AIRPORT"].astype("string").str.strip().str.upper().str.fullmatch(r"[A-Z]{3}").fillna(False)
+    destination_mask = df["DESTINATION_AIRPORT"].astype("string").str.strip().str.upper().str.fullmatch(r"[A-Z]{3}").fillna(False)
+    valid_mask = origin_mask & destination_mask
+
+    removed_rows = int((~valid_mask).sum())
+
+    if removed_rows > 0:
+        log("WARN", "PROCESS", f"{removed_rows:,} linhas removidas por ORIGIN_AIRPORT/DESTINATION_AIRPORT fora do padrão IATA")
+
+    return df.loc[valid_mask].copy()
+
+
+def create_business_features(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Criando atributos derivados de suporte")
+
+    if "SCHEDULED_TIME" in df.columns:
+        df["DELAY_RATIO"] = df["DEPARTURE_DELAY"] / df["SCHEDULED_TIME"].replace(0, np.nan)
+        df["DELAY_RATIO"] = df["DELAY_RATIO"].replace([np.inf, -np.inf], np.nan).fillna(0)
+
+    if "CANCELLED" in df.columns and "DEPARTURE_DELAY" in df.columns:
+        df.loc[df["CANCELLED"] == 1, "DEPARTURE_DELAY"] = 0
+
+    return df
+
+
+def fill_numeric_nulls(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "PROCESS", "Tratando nulos numericos")
+
+    zero_fill_columns = [
+        "DEPARTURE_DELAY",
+        "ARRIVAL_DELAY",
+        "AIR_SYSTEM_DELAY",
+        "SECURITY_DELAY",
+        "AIRLINE_DELAY",
+        "LATE_AIRCRAFT_DELAY",
+        "WEATHER_DELAY",
+        "DELAY_RATIO",
+    ]
+
+    for column in zero_fill_columns:
+        if column in df.columns:
+            df[column] = df[column].fillna(0)
+
+    return df
+
+
+def write_csv(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    log("INFO", "WRITE", f"Gravando dataset normalizado em: {path}")
+    df.to_csv(path, index=False)
+    log("SUCCESS", "WRITE", "Arquivo CSV normalizado salvo com sucesso")
+
+
+# =====================================================
+# Core Process
+# =====================================================
+
+def normalize_flights() -> pd.DataFrame:
+    if not INPUT_PATH.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {INPUT_PATH}")
+
+    df = read_csv_safe(INPUT_PATH)
+    df = normalize_columns(df)
+    df = add_date_column(df)
+    df = remove_irrelevant_columns(df)
+    df = normalize_time_columns(df)
+    df = normalize_numeric_columns(df)
+    df = normalize_text_columns(df)
+    validate_airport_code_formats(df)
+    df = filter_iata_airport_rows(df)
+    df = create_business_features(df)
+    df = fill_numeric_nulls(df)
+
+    log("INFO", "PROCESS", f"Dataset final preparado com {len(df)} linhas e {len(df.columns)} colunas")
+    return df
+
+
+# =====================================================
+# Main
+# =====================================================
+
+def main():
+    log("INFO", "PIPELINE", "Iniciando pipeline de normalização de flights")
+
+    try:
+        df = normalize_flights()
+        write_csv(df, OUTPUT_PATH)
+        log("SUCCESS", "PIPELINE", "Pipeline finalizado com sucesso")
+    except Exception as exc:
+        log("ERROR", "PIPELINE", f"Erro na normalização: {str(exc)}")
+        raise
+
+
+if __name__ == "__main__":
+    main()
