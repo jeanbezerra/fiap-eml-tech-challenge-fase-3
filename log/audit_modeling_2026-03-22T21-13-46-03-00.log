@@ -1,0 +1,16 @@
+[2026-03-22T21:13:46-03:00] Iniciando execução. Arquivo: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\data\features\flights_features.parquet
+[2026-03-22T21:13:47-03:00] Dados brutos carregados: (5332914, 28)
+[2026-03-22T21:13:48-03:00] Amostra utilizada: (500000, 28) (Seed: 42)
+[2026-03-22T21:13:48-03:00] Features selecionadas: 18 colunas.
+[2026-03-22T21:13:48-03:00] --- Início: Classificação ---
+[2026-03-22T21:13:48-03:00] Treinando Logistic Regression (params: {'max_iter': 2000})...
+[2026-03-22T21:13:49-03:00] Treinando Random Forest (params: {'n_estimators': 100, 'max_depth': None, 'random_state': 42})...
+[2026-03-22T21:15:50-03:00] METRICAS Logistic Regression: Acc: 0.8177 | Prec: 0.4784 | Rec: 0.0097 | F1: 0.0191
+[2026-03-22T21:15:53-03:00] METRICAS Random Forest: Acc: 0.8119 | Prec: 0.4045 | Rec: 0.0694 | F1: 0.1184
+[2026-03-22T21:15:53-03:00] --- Regressão indisponível neste dataset ---
+[2026-03-22T21:15:53-03:00] AVISO: O dataset de features foi refatorado para classificação pré-voo e não contém ARRIVAL_DELAY.
+[2026-03-22T21:15:53-03:00] AVISO: Etapa de regressão ignorada para evitar dependência de colunas removidas por data leakage.
+[2026-03-22T21:15:53-03:00] --- Início: Clusterização & Insights ---
+[2026-03-22T21:15:56-03:00] Clusters criados. Distribuição: {0: 166683, 4: 135110, 3: 114267, 1: 52443, 2: 31497}
+[2026-03-22T21:15:57-03:00] Top 5 Features: {'ROUTE_HIST_DELAY_RATE': 0.12280364319884579, 'AIRLINE_HIST_DELAY_RATE': 0.12217824251479491, 'DAY_OF_MONTH': 0.08707032614074049, 'FLIGHT_NUMBER': 0.08146492703021102, 'SCHEDULED_TIME': 0.06800572453239662}
+[2026-03-22T21:15:57-03:00] Finalizado com sucesso. Log gerado em: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\log\audit_modeling_2026-03-22T21-13-46-03-00.log

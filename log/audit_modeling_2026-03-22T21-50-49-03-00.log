@@ -1,0 +1,29 @@
+[2026-03-22T21:50:49-03:00] Iniciando Pipeline. Arquivo: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\data\features\flights_features.parquet
+[2026-03-22T21:50:49-03:00] Dados carregados: linhas=5332914 | colunas=28
+[2026-03-22T21:50:50-03:00] Amostra utilizada: linhas=500000 | colunas=28 | seed=42
+[2026-03-22T21:50:50-03:00] Setup concluido. Features numericas=18 | categoricas=9 | Threshold=0.30
+[2026-03-22T21:50:50-03:00] Distribuicao alvo: full=0.1822 | train=0.1822 | test=0.1822
+[2026-03-22T21:50:50-03:00] Features categoricas incluidas no treino: ['PERIOD_OF_DAY', 'AIRLINE', 'ORIGIN_AIRPORT', 'DESTINATION_AIRPORT', 'ROUTE', 'ORIGIN_CITY', 'ORIGIN_STATE', 'DESTINATION_CITY', 'DESTINATION_STATE']
+[2026-03-22T21:50:50-03:00] Cardinalidade das categoricas no treino: {'PERIOD_OF_DAY': 4, 'AIRLINE': 14, 'ORIGIN_AIRPORT': 322, 'DESTINATION_AIRPORT': 322, 'ROUTE': 4473, 'ORIGIN_CITY': 308, 'ORIGIN_STATE': 54, 'DESTINATION_CITY': 308, 'DESTINATION_STATE': 54}
+[2026-03-22T21:50:50-03:00] --- Treinamento: Classificacao ---
+[2026-03-22T21:50:51-03:00] Treinando Logistic Regression com parametros: {'max_iter': 2000, 'class_weight': 'balanced'}
+[2026-03-22T21:51:03-03:00] Treinando Random Forest com parametros: {'n_estimators': 100, 'random_state': 42, 'class_weight': 'balanced', 'n_jobs': -1, 'oob_score': True} | categoricas codificadas por frequencia: ['PERIOD_OF_DAY_FREQ', 'AIRLINE_FREQ', 'ORIGIN_AIRPORT_FREQ', 'DESTINATION_AIRPORT_FREQ', 'ROUTE_FREQ', 'ORIGIN_CITY_FREQ', 'ORIGIN_STATE_FREQ', 'DESTINATION_CITY_FREQ', 'DESTINATION_STATE_FREQ']
+[2026-03-22T21:51:22-03:00] Random Forest OOB score: 0.8069
+[2026-03-22T21:51:24-03:00] RESULTADO Logistic Regression:
+[2026-03-22T21:51:24-03:00]   > TESTE: Acc=0.2956 | F1=0.3267 | Recall=0.9380 | Precision=0.1978 | Pred_Pos_Rate=0.8640
+[2026-03-22T21:51:24-03:00]   > TREINO: F1=0.3319 | Recall=0.9544 | Precision=0.2009
+[2026-03-22T21:51:24-03:00]   > MATRIZ_CONFUSAO: TP=17090, FP=69310, FN=1130, TN=12470
+[2026-03-22T21:51:24-03:00]   > DIAGNOSTICO: UNDERFITTING | Gap_F1=0.0052
+[2026-03-22T21:51:26-03:00] RESULTADO Random Forest:
+[2026-03-22T21:51:26-03:00]   > TESTE: Acc=0.7457 | F1=0.3130 | Recall=0.3180 | Precision=0.3082 | Pred_Pos_Rate=0.1880
+[2026-03-22T21:51:26-03:00]   > TREINO: F1=0.9969 | Recall=1.0000 | Precision=0.9939
+[2026-03-22T21:51:26-03:00]   > MATRIZ_CONFUSAO: TP=5794, FP=13007, FN=12426, TN=68773
+[2026-03-22T21:51:26-03:00]   > DIAGNOSTICO: OVERFITTING | Gap_F1=0.6839
+[2026-03-22T21:51:26-03:00]   ! ALERTA: Gap de overfitting alto (0.6839)
+[2026-03-22T21:51:26-03:00]   ! ALERTA: Recall baixo (0.3180); ainda ha muitos falsos negativos.
+[2026-03-22T21:51:26-03:00] --- Finalizacao e Artefatos ---
+[2026-03-22T21:51:26-03:00] Melhor modelo por F1 de teste: Logistic Regression
+[2026-03-22T21:51:26-03:00] Modelo salvo em: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\models\best_model.pkl
+[2026-03-22T21:51:26-03:00] Top 5 Predictores: {'ROUTE_HIST_DELAY_RATE': 0.10031619888752699, 'AIRLINE_HIST_DELAY_RATE': 0.09754753173099205, 'DAY_OF_MONTH': 0.08017717376827278, 'FLIGHT_NUMBER': 0.052648394316848285, 'DAY_OF_WEEK': 0.0460554394074095}
+[2026-03-22T21:51:26-03:00] RESUMO FINAL: LR=UNDERFITTING (F1=0.3267, Recall=0.9380) | RF=OVERFITTING (F1=0.3130, Recall=0.3180)
+[2026-03-22T21:51:26-03:00] Pipeline finalizado com sucesso. Log gerado em: C:\FIAP\EML\WORKSPACES\workspace-techchallenger\fiap-eml-tech-challenge-fase-3\log\audit_modeling_2026-03-22T21-50-49-03-00.log
