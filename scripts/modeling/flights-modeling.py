@@ -66,6 +66,28 @@ def diagnose_fit(train_f1: float, test_f1: float, test_recall: float) -> str:
     return "AJUSTE_INTERMEDIARIO"
 
 
+def drop_compatibility_aliases(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    alias_pairs = {
+        "CITY": "ORIGIN_CITY",
+        "STATE": "ORIGIN_STATE",
+    }
+    dropped_columns = []
+    model_frame = df.copy()
+
+    for alias_column, canonical_column in alias_pairs.items():
+        if alias_column not in model_frame.columns or canonical_column not in model_frame.columns:
+            continue
+
+        alias_values = model_frame[alias_column].astype("string").fillna("UNKNOWN")
+        canonical_values = model_frame[canonical_column].astype("string").fillna("UNKNOWN")
+
+        if alias_values.equals(canonical_values):
+            model_frame = model_frame.drop(columns=[alias_column])
+            dropped_columns.append(alias_column)
+
+    return model_frame, dropped_columns
+
+
 def fit_frequency_encoder(df: pd.DataFrame, categorical_columns: list[str]) -> dict[str, pd.Series]:
     encoder = {}
     row_count = len(df)
@@ -247,6 +269,7 @@ audit_log(f"Amostra utilizada: linhas={len(df)} | colunas={len(df.columns)} | se
 # Preparacao do Target
 df["TARGET_DELAY"] = df["IS_DELAYED"].astype(int)
 feature_frame = df.drop(columns=["IS_DELAYED", "TARGET_DELAY"], errors="ignore")
+feature_frame, dropped_alias_columns = drop_compatibility_aliases(feature_frame)
 numeric_columns = feature_frame.select_dtypes(include=[np.number]).columns.tolist()
 categorical_columns = feature_frame.select_dtypes(exclude=[np.number]).columns.tolist()
 X = feature_frame.copy()
@@ -263,6 +286,10 @@ audit_log(
 audit_log(
     f"Distribuicao alvo: full={positive_rate(y):.4f} | train={positive_rate(y_train):.4f} | test={positive_rate(y_test):.4f}"
 )
+if dropped_alias_columns:
+    audit_log(
+        f"Aliases de compatibilidade removidas do treino por duplicarem colunas canonicas: {dropped_alias_columns}"
+    )
 if categorical_columns:
     audit_log(
         f"Features categoricas incluidas no treino: {categorical_columns}"

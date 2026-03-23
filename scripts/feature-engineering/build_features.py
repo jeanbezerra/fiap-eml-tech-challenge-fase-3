@@ -66,6 +66,8 @@ FINAL_FEATURE_COLUMNS = [
     "ORIGIN_AIRPORT",
     "DESTINATION_AIRPORT",
     "ROUTE",
+    "CITY",
+    "STATE",
     "ORIGIN_CITY",
     "ORIGIN_STATE",
     "DESTINATION_CITY",
@@ -204,6 +206,17 @@ def enrich_airports(df: pd.DataFrame, airports: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_airport_compatibility_aliases(df: pd.DataFrame) -> pd.DataFrame:
+    log("INFO", "FEATURE", "Criando aliases de compatibilidade CITY/STATE a partir da origem")
+
+    if "ORIGIN_CITY" in df.columns:
+        df["CITY"] = df["ORIGIN_CITY"]
+    if "ORIGIN_STATE" in df.columns:
+        df["STATE"] = df["ORIGIN_STATE"]
+
+    return df
+
+
 def add_schedule_features(df: pd.DataFrame) -> pd.DataFrame:
     log("INFO", "FEATURE", "Criando features de agendamento")
 
@@ -292,6 +305,8 @@ def fill_missing_values(df: pd.DataFrame) -> pd.DataFrame:
         "ORIGIN_AIRPORT",
         "DESTINATION_AIRPORT",
         "ROUTE",
+        "CITY",
+        "STATE",
         "ORIGIN_CITY",
         "ORIGIN_STATE",
         "DESTINATION_CITY",
@@ -388,6 +403,7 @@ def build_features(df: pd.DataFrame, airports: pd.DataFrame) -> pd.DataFrame:
     df = add_schedule_features(df)
     df = add_route_features(df)
     df = enrich_airports(df, airports)
+    df = add_airport_compatibility_aliases(df)
     df = add_historical_delay_rates(df)
     df = drop_leakage_columns(df)
     df = fill_missing_values(df)
